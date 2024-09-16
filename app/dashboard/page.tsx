@@ -1,53 +1,54 @@
 'use client'
 
-import DashboardChart from '@/components/DashboardChart'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import DetailedFinancialReport from '@/components/DetailedFinancialReport'
+import DataExporter from '@/components/DataExporter'
 
-// Mock data - replace with actual data fetching logic
-const incomeData = [
-  { name: 'Salary', value: 5000 },
-  { name: 'Investments', value: 1000 },
-  { name: 'Freelance', value: 800 },
-]
-
-const expenseData = [
-  { name: 'Rent', value: 1500 },
-  { name: 'Groceries', value: 500 },
-  { name: 'Utilities', value: 300 },
-  { name: 'Entertainment', value: 200 },
-]
+type EntryType = {
+  id: string
+  amount: number
+  description: string
+  category: string
+  date: string
+  type: 'income' | 'expense'
+}
 
 export default function DashboardPage() {
-  const totalIncome = incomeData.reduce((sum, item) => sum + item.value, 0)
-  const totalExpenses = expenseData.reduce((sum, item) => sum + item.value, 0)
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [entries, setEntries] = useState<EntryType[]>([])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    } else if (status === 'authenticated') {
+      fetchEntries()
+    }
+  }, [status, router])
+
+  const fetchEntries = async () => {
+    const response = await fetch('/api/entries')
+    if (response.ok) {
+      const data = await response.json()
+      setEntries(data)
+    }
+  }
+
+  if (status === 'loading') {
+    return <div>Loading...</div>
+  }
+
+  if (!session) {
+    return null
+  }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <h1 className="text-3xl font-bold">Financial Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Income</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">${totalIncome}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Expenses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">${totalExpenses}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <DashboardChart data={incomeData} title="Income Breakdown" />
-        <DashboardChart data={expenseData} title="Expense Breakdown" />
-      </div>
+      <DetailedFinancialReport entries={entries} />
+      <DataExporter entries={entries} />
     </div>
   )
 }
